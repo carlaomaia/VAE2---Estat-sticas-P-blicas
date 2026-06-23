@@ -1,0 +1,402 @@
+---
+title: "VA2 - Part. 4"
+author: "Carlos Maia"
+date: "2026-06-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r preparacao_dados}
+# ============================================================
+# PARTE 1 – PREPARAÇÃO DOS DADOS
+# ============================================================
+
+library(PNADcIBGE)
+library(srvyr)
+library(dplyr)
+library(summarytools)
+library(stargazer)
+library(lmtest)
+library(ggplot2)
+library(readxl)
+library(here)
+library(forecast)
+
+# 1. Baixando a base do 4º trimestre de 2025
+base <- get_pnadc(year = 2025, quarter = 4,
+                  vars = c("VD4020", "V2007", "V2009", "VD3005", "VD4001", "UF"))
+
+# 2. Transformação para objeto survey e limpeza inicial
+base      <- as_survey(base)
+base_isna <- base[!is.na(base$variables$VD4020) & base$variables$VD4020 != 0, ]
+base_pea  <- filter(base_isna, VD4001 == "Pessoas na força de trabalho")
+base_rj   <- filter(base_pea,  UF     == "Rio de Janeiro")
+
+# 3. Recodificação de Anos de Estudo (0 a 16)
+base_final <- mutate(base_rj, anos.de.estudo = recode(VD3005,
+  "Sem instrução e menos de 1 ano de estudo" = 0,
+  "1 ano de estudo"  = 1,  "2 anos de estudo"  = 2,  "3 anos de estudo"  = 3,
+  "4 anos de estudo" = 4,  "5 anos de estudo"  = 5,  "6 anos de estudo"  = 6,
+  "7 anos de estudo" = 7,  "8 anos de estudo"  = 8,  "9 anos de estudo"  = 9,
+  "10 anos de estudo" = 10, "11 anos de estudo" = 11, "12 anos de estudo" = 12,
+  "13 anos de estudo" = 13, "14 anos de estudo" = 14, "15 anos de estudo" = 15,
+  "16 anos ou mais de estudo" = 16))
+
+df <- base_final$variables
+
+# 4. Exclusão de outliers de rendimento (Método IQR)
+Q1            <- quantile(df$VD4020, 0.25, na.rm = TRUE)
+Q3            <- quantile(df$VD4020, 0.75, na.rm = TRUE)
+IQR_renda     <- Q3 - Q1
+limite_superior <- Q3 + 1.5 * IQR_renda
+df <- filter(df, VD4020 <= limite_superior)
+
+# 5. Criação das faixas etária e de estudo
+df$faixa_idade <- ifelse(df$V2009 <= 25, "<= 25",
+                  ifelse(df$V2009 <= 35, "Entre 26 e 35",
+                  ifelse(df$V2009 <= 50, "Entre 36 e 50", "> 50")))
+df$faixa_idade <- factor(df$faixa_idade,
+                         levels = c("<= 25", "Entre 26 e 35", "Entre 36 e 50", "> 50"))
+
+# ATENÇÃO: o label "> 13" é usado consistentemente em todo o script
+df$faixa_estudo <- ifelse(df$anos.de.estudo <= 9, "9 anos ou menos",
+                   ifelse(df$anos.de.estudo <= 12, "Entre 10 e 12", "> 13"))
+df$faixa_estudo <- factor(df$faixa_estudo,
+                          levels = c("9 anos ou menos", "Entre 10 e 12", "> 13"))
+
+# --- Estatísticas descritivas: Gênero ---
+cat("=== ESTATÍSTICAS POR GÊNERO ===\n")
+cat("Número de Observações:\n"); print(table(df$V2007))
+cat("\nRendimento Médio:\n");   print(tapply(df$VD4020, df$V2007, mean))
+cat("\nDesvio Padrão:\n");     print(tapply(df$VD4020, df$V2007, sd))
+
+# --- Estatísticas descritivas: Faixa Etária ---
+cat("\n=== ESTATÍSTICAS POR FAIXA ETÁRIA ===\n")
+cat("Número de Observações:\n"); print(table(df$faixa_idade))
+cat("\nRendimento Médio:\n");    print(tapply(df$VD4020, df$faixa_idade, mean))
+cat("\nDesvio Padrão:\n");      print(tapply(df$VD4020, df$faixa_idade, sd))
+
+# --- Visualização gráfica ---
+par(mfrow = c(1, 2))
+
+boxplot(VD4020 ~ V2007, data = df,
+        main = "Rendimento por Gênero",
+        ylab = "Rendimento (R$)", xlab = "Gênero",
+        col = c("pink", "blue"), outline = FALSE)
+
+boxplot(VD4020 ~ faixa_idade, data = df,
+        main = "Renda por Faixa Etária",
+        ylab = "Rendimento (R$)", xlab = "Faixa Etária",
+        col = c("cyan", "yellow", "plum", "gray"), outline = FALSE)
+
+par(mfrow = c(1, 1))
+```
+
+**Gênero:** Nota-se uma possível disparidade, onde a mediana e o 3º quartil da população masculina se posicionam acima da feminina, demonstrando desigualdade salarial estrutural na amostra.
+
+**Faixa Etária:** Os rendimentos aumentam das faixas mais jovens para a adulta, atingindo pico entre 36–50 anos. A exclusão de outliers permitiu visualização mais clara do comportamento majoritário.
+
+---
+
+## Parte 2 – Inferência Cross-Section
+
+### A) Teste Qui-Quadrado (Escolaridade × Rendimento)
+
+```{r parte2_a}
+# 1. Variável categórica de rendimento (Alta/Baixa em relação à média)
+media_renda        <- mean(df$VD4020, na.rm = TRUE)
+df$faixa_rendimento <- ifelse(df$VD4020 > media_renda, "Alta", "Baixa")
+
+# 2. Tabela de contingência + Qui-Quadrado
+# CORREÇÃO: o nível correto é "> 13", não "Mais de 13"
+df$faixa_estudo <- factor(df$faixa_estudo,
+                          levels = c("9 anos ou menos", "Entre 10 e 12", "> 13"))
+
+ctable(x = df$faixa_estudo, y = df$faixa_rendimento, chisq = TRUE)
+```
+
+**Interpretação (2A):** O teste Qui-Quadrado avalia:
+
+- **H₀:** Faixa de escolaridade e faixa de rendimento são independentes.  
+- **H₁:** As variáveis são dependentes.
+
+Com p-valor < 0,05, rejeitamos H₀: o nível de escolaridade influencia estatisticamente a probabilidade de pertencer à faixa de renda Alta ou Baixa.
+
+---
+
+### B) Regressão Linear Simples
+
+```{r parte2_b}
+# 1. Modelo: Rendimento ~ Anos de Estudo
+modelo_simples <- lm(VD4020 ~ anos.de.estudo, data = df)
+
+# 2. Tabela de resultados
+stargazer(modelo_simples, type = "text",
+          title = "Regressão Linear Simples: Rendimento vs Escolaridade")
+
+# 3. Predição para 9 anos de escolaridade
+predicao_9_anos <- predict(modelo_simples, newdata = data.frame(anos.de.estudo = 9))
+cat("\nRendimento médio esperado para 9 anos de escolaridade: R$",
+    round(predicao_9_anos, 2), "\n")
+```
+
+**Interpretação (2B):**
+
+- **b1)** O coeficiente de `anos.de.estudo` indica quantos reais, em média, a renda aumenta a cada ano adicional de escolaridade. Com t alto e p < 0,01, o impacto é estatisticamente significativo.  
+- **b2)** O valor predito acima corresponde à renda esperada de um indivíduo fluminense com 9 anos de estudo.
+
+---
+
+### C) Diagnóstico dos Resíduos
+
+```{r parte2_c}
+# Resíduos e valores ajustados
+res      <- residuals(modelo_simples)
+ajustados <- fitted(modelo_simples)
+
+# --- Testes de hipóteses ---
+cat("--- Breusch-Pagan (Homocedasticidade) ---\n")
+print(bptest(modelo_simples))
+
+cat("\n--- Durbin-Watson (Autocorrelação) ---\n")
+print(dwtest(modelo_simples))
+
+cat("\n--- Shapiro-Wilk (Normalidade) – primeiras 5000 obs. ---\n")
+print(shapiro.test(res[1:5000]))
+
+# --- Análise gráfica ---
+par(mfrow = c(1, 3))
+
+plot(ajustados, res,
+     main = "Resíduos x Ajustados",
+     xlab = "Valores Ajustados", ylab = "Resíduos",
+     pch = 20, col = "darkgray")
+abline(h = 0, col = "red", lwd = 2)
+
+qqnorm(res, main = "QQ-Plot: Normalidade")
+qqline(res, col = "red", lwd = 2)
+
+plot(res, type = "l",
+     main = "Autocorrelação",
+     ylab = "Resíduos", xlab = "Índice")
+abline(h = 0, col = "red", lwd = 2)
+
+par(mfrow = c(1, 1))
+```
+
+**Interpretação (2C):**
+
+- **Homocedasticidade:** Breusch-Pagan rejeita H₀ (p < 0,05) → heterocedasticidade presente, visível no cone do gráfico Resíduos × Ajustados.  
+- **Normalidade:** Shapiro-Wilk rejeita H₀ (p < 0,05) → não-normalidade confirmada pelo desvio nas caudas do QQ-Plot.  
+- **Autocorrelação:** Durbin-Watson verifica correlação serial; gráfico de linha permite detectar padrões periódicos nos erros.
+
+---
+
+## Parte 3 – Modelos Log-Nível e Regressão Múltipla
+
+### 3.1 Modelo Log-Nível e Análise de Resíduos
+
+```{r parte3_1}
+# Estimando o modelo Log-Nível
+modelo_log <- lm(log(VD4020) ~ anos.de.estudo, data = df)
+
+# Imprimindo a tabela do novo modelo
+stargazer(modelo_log, type = "text", title = "Regressão Log-Nível (Renda em Log)")
+
+# Resíduos e valores ajustados do modelo log
+res_log       <- residuals(modelo_log)
+ajustados_log <- fitted(modelo_log)
+
+# --- Testes de hipóteses (modelo log) ---
+cat("\n--- Breusch-Pagan (Log-Nível) ---\n")
+print(bptest(modelo_log))
+
+cat("\n--- Durbin-Watson (Log-Nível) ---\n")
+print(dwtest(modelo_log))
+
+cat("\n--- Shapiro-Wilk (Log-Nível) – primeiras 5000 obs. ---\n")
+print(shapiro.test(res_log[1:5000]))
+
+# --- Gráficos diagnósticos do modelo log ---
+par(mfrow = c(1, 2))
+
+plot(ajustados_log, res_log,
+     main = "Resíduos x Ajustados (Log)",
+     xlab = "Valores Ajustados", ylab = "Resíduos",
+     pch = 20, col = "darkgray")
+abline(h = 0, col = "red", lwd = 2)
+
+qqnorm(res_log, main = "QQ-Plot: Normalidade (Log)")
+qqline(res_log, col = "red", lwd = 2)
+
+par(mfrow = c(1, 1))
+```
+
+**Interpretação (Log-Nível e Resíduos):**
+
+- **Impacto percentual:** No modelo log-nível, o coeficiente de `anos.de.estudo` mede uma variação percentual. Multiplicando-o por 100, obtemos o aumento percentual esperado na renda do indivíduo para cada ano adicional de escolaridade.
+- **Melhora nos resíduos:** A transformação logarítmica comprime a escala dos dados. Visualmente, o problema de funil (heterocedasticidade) aparece atenuado no gráfico Resíduos × Ajustados, e o QQ-Plot mostra os pontos mais aderentes à reta normal teórica.
+
+### 3.2 Regressão Múltipla
+
+Estendendo o modelo log-nível para incluir Gênero (`V2007`) e Idade contínua (`V2009`):
+
+```{r parte3_2}
+# Estimando o modelo múltiplo (usando V2009 contínua)
+modelo_mult <- lm(log(VD4020) ~ anos.de.estudo + V2007 + V2009, data = df)
+
+# Comparando os modelos com stargazer
+stargazer(modelo_log, modelo_mult, type = "text",
+          title = "Comparação: Modelo Simples vs Múltiplo",
+          column.labels = c("Log Simples", "Log Múltiplo"))
+```
+
+**Interpretação da Regressão Múltipla:** Fez sentido adicionar as variáveis Gênero e Idade — ao incluir variáveis relevantes, a capacidade explicativa do modelo melhora. Observando a tabela `stargazer` acima, nota-se que o R² Ajustado (Adjusted R²) aumentou no modelo múltiplo em relação ao modelo simples, e a variável de idade contínua (`V2009`) apresentou significância estatística.
+
+Essa inferência valida os resultados da estatística descritiva: a regressão múltipla captura esses efeitos mantendo o controle *ceteris paribus* — isto é, mantendo escolaridade e gênero constantes, espera-se que a renda do trabalhador fluminense cresça a cada ano adicional de vida, evidenciado pelo coeficiente positivo da variável idade.
+
+---
+
+## Parte 4 – Séries Temporais
+
+Nesta parte utilizarei as três séries fornecidas: a concentração mensal de CO₂ em Mauna Loa, o índice mensal de volume de vendas do comércio varejista brasileiro e as vendas semanais de volumes do mangá *One Piece* no Japão.
+
+```{r parte4_load}
+
+# --- Série 1: CO2 (Mauna Loa) ---
+co2_raw <- read.csv(here("serie_co2.csv"), sep = ";", dec = ".")
+co2_ts  <- ts(co2_raw$co2_vec, start = c(1959, 1), frequency = 12)
+
+# --- Série 2: PMC - Índice de Volume de Vendas no Varejo (Tabela 8880) ---
+pmc_raw <- read_excel(here("Tabela_8880.xlsx"), sheet = "Tabela", col_names = FALSE, skip = 5)
+names(pmc_raw) <- c("mes", "indice")
+pmc_raw <- pmc_raw[!is.na(pmc_raw$indice), ]  # remove a linha de rodapé ("Fonte: IBGE...")
+pmc_ts  <- ts(pmc_raw$indice, start = c(2000, 1), frequency = 12)
+
+# --- Série 3: Venda Semanal de One Piece ---
+op_raw <- read_excel(here("Venda_Semanal_One_Piece.xlsx"))
+# frequency = 13: o ciclo de lançamento dos volumes no Japão é de
+# aproximadamente 13 semanas (trimestral) - não há sazonalidade anual aqui.
+# Ver justificativa detalhada na seção a.iii, abaixo.
+op_ts  <- ts(op_raw$Vendas, frequency = 13)
+
+par(mfrow = c(1, 3))
+plot(co2_ts, main = "CO2 (Mauna Loa)", ylab = "ppm")
+plot(pmc_ts, main = "PMC - Índice de Volume", ylab = "Índice (2022=100)")
+plot(op_ts,  main = "Vendas Semanais - One Piece", ylab = "Volumes vendidos")
+par(mfrow = c(1, 1))
+```
+
+### a) Decomposição das Três Séries
+
+#### i) CO2 (Mauna Loa)
+
+```{r parte4_co2_decomp}
+decomp_co2_add  <- decompose(co2_ts, type = "additive")
+decomp_co2_mult <- decompose(co2_ts, type = "multiplicative")
+
+# Verificando se a amplitude sazonal é constante (sugere aditivo) ou
+# cresce proporcionalmente ao nível da série (sugere multiplicativo)
+ano_co2         <- floor(time(co2_ts))
+amplitude_anual <- tapply(as.numeric(co2_ts), ano_co2, function(x) max(x) - min(x))
+
+cat("Amplitude sazonal anual (ppm) - primeiros 5 anos:\n")
+print(round(head(amplitude_anual, 5), 2))
+cat("\nAmplitude sazonal anual (ppm) - últimos 5 anos:\n")
+print(round(tail(amplitude_anual, 5), 2))
+
+par(mfrow = c(1, 2))
+plot(decomp_co2_add)
+plot(decomp_co2_mult)
+par(mfrow = c(1, 1))
+```
+
+**Interpretação (CO2):** Mesmo com o nível da série subindo de cerca de 315 ppm (1959) para 365 ppm (1997), a amplitude da oscilação sazonal dentro de cada ano permanece em torno de 5,5 a 6,3 ppm ao longo de toda a série — não cresce proporcionalmente ao nível. Essa é a evidência de que a sazonalidade aqui é **aditiva** (um ciclo de magnitude absoluta praticamente constante, ligado ao ciclo de fotossíntese do hemisfério norte), e não multiplicativa. A componente de tendência é claramente crescente, consistente com o acúmulo de CO₂ na atmosfera ao longo das décadas.
+
+#### ii) PMC – Índice de Volume de Vendas no Varejo
+
+```{r parte4_pmc_decomp}
+decomp_pmc_add  <- decompose(pmc_ts, type = "additive")
+decomp_pmc_mult <- decompose(pmc_ts, type = "multiplicative")
+
+# Comparando o pico de dezembro ("efeito Natal") com a média dos demais
+# meses do mesmo ano, em termos absolutos e percentuais
+ano_pmc <- floor(time(pmc_ts))
+mes_pmc <- cycle(pmc_ts)
+pmc_df  <- data.frame(ano = ano_pmc, mes = mes_pmc, valor = as.numeric(pmc_ts))
+
+dezembro     <- pmc_df[pmc_df$mes == 12, c("ano", "valor")]
+outros_meses <- aggregate(valor ~ ano, data = pmc_df[pmc_df$mes != 12, ], FUN = mean)
+comparacao   <- merge(dezembro, outros_meses, by = "ano", suffixes = c("_dez", "_outros"))
+comparacao$diferenca_absoluta   <- comparacao$valor_dez - comparacao$valor_outros
+comparacao$diferenca_percentual <- 100 * comparacao$diferenca_absoluta / comparacao$valor_outros
+
+cat("Salto de dezembro ao longo dos anos (absoluto x percentual):\n")
+print(round(comparacao[comparacao$ano %in% c(2000, 2010, 2020, 2025), -1], 1))
+
+cat("\nDesvio-padrão dos resíduos (aditivo, em pontos de índice):",
+    round(sd(decomp_pmc_add$random, na.rm = TRUE), 3), "\n")
+cat("Desvio-padrão dos resíduos (multiplicativo, em proporção do nível):",
+    round(sd(decomp_pmc_mult$random, na.rm = TRUE), 4), "\n")
+
+par(mfrow = c(1, 2))
+plot(decomp_pmc_add)
+plot(decomp_pmc_mult)
+par(mfrow = c(1, 1))
+```
+
+**Interpretação (PMC):** O salto de dezembro cresce, em termos absolutos, junto com o nível geral da série — de cerca de +21 pontos em 2000 para faixas de +22 a +34 pontos nos anos mais recentes —, enquanto o desvio-padrão relativo dos resíduos é ligeiramente menor no modelo **multiplicativo**. Isso indica que o efeito sazonal de fim de ano é proporcional ao nível da série (uma característica típica de índices de volume de vendas no varejo), favorecendo a decomposição **multiplicativa** sobre a aditiva.
+
+#### iii) Venda Semanal de One Piece
+
+```{r parte4_op_decomp}
+# Identificando os "picos de lançamento" (semanas em que um novo volume estreia)
+op_vals <- as.numeric(op_ts)
+prev    <- c(0, op_vals[-length(op_vals)])
+picos   <- which(op_vals > 5 * prev & op_vals > 50000)
+
+intervalo_semanas <- diff(picos)
+cat("Intervalo entre lançamentos (em semanas) - resumo:\n")
+print(summary(intervalo_semanas))
+
+decomp_op_add  <- decompose(op_ts, type = "additive")
+decomp_op_mult <- decompose(op_ts, type = "multiplicative")
+
+par(mfrow = c(1, 2))
+plot(decomp_op_add)
+plot(decomp_op_mult)
+par(mfrow = c(1, 1))
+```
+
+**Interpretação (One Piece):** Esta série não tem sazonalidade no sentido tradicional (calendário anual). O "ciclo" observado decorre do calendário de lançamento dos volumes no Japão, que se repete a cada **~13 semanas** (mediana, variando de 1 a 24 semanas) — aproximadamente trimestral. Por isso usamos `frequency = 13` ao construir o objeto `ts`, em vez do padrão `frequency = 52` que seria adequado a uma sazonalidade anual (e que, aqui, não capturaria o padrão real de lançamentos). Mesmo com o pico de vendas no lançamento caindo de mais de 2 milhões de exemplares (auge por volta de 2012) para algumas centenas de milhares nos anos recentes — refletindo a queda natural de interesse em uma obra que já está há muito tempo em publicação —, o formato relativo da curva de decaimento pós-lançamento (a fração das vendas do lançamento que permanece na 2ª, 3ª, 4ª semana) se mantém parecido entre ciclos antigos e recentes. Isso é evidência de sazonalidade **multiplicativa**: o "formato" do ciclo é proporcional ao nível de cada pico, e não uma quantidade fixa de exemplares. Vale ressaltar, porém, que como os intervalos entre lançamentos variam bastante (1 a 24 semanas, não exatamente 13 sempre), a decomposição clássica com `frequency` fixo é apenas uma aproximação razoável para esta série — uma limitação inerente ao método quando o ciclo real não é perfeitamente regular, diferente do que ocorre com as séries de CO2 e PMC, ambas estritamente atadas ao calendário.
+
+### b) Previsão para 12 Meses – Série Escolhida: PMC
+
+Escolhemos a série do **PMC** (índice de volume de vendas no varejo) para a etapa de previsão, por ser a única das três com sazonalidade **claramente calendárica** (mensal, com pico recorrente em dezembro) combinada com uma tendência de longo prazo bem definida — o cenário ideal para o método de **Holt-Winters** estudado em aula. Como concluímos no item a.ii que a sazonalidade é multiplicativa, usamos `seasonal = "multiplicative"`.
+
+```{r parte4_forecast}
+# Separando os últimos 12 meses para validação
+treino_pmc    <- window(pmc_ts, end = c(2025, 3))
+validacao_pmc <- window(pmc_ts, start = c(2025, 4))
+
+# Holt-Winters multiplicativo, horizonte de 12 meses
+fit_pmc <- hw(treino_pmc, h = 12, seasonal = "multiplicative")
+
+plot(fit_pmc, main = "PMC: Previsão x Valores Observados nos Últimos 12 Meses",
+     ylab = "Índice de Volume de Vendas (2022=100)")
+lines(validacao_pmc, lty = 3, lwd = 2)
+
+cat("\n--- Constantes de amortecimento estimadas (alpha, beta, gamma) ---\n")
+print(fit_pmc$model$par[c("alpha", "beta", "gamma")])
+
+cat("\n--- Medidas de acurácia no período de validação ---\n")
+# Ordem canônica do pacote forecast: accuracy(objeto_previsao, valores_reais)
+accuracy(fit_pmc, validacao_pmc)
+```
+
+**Interpretação (Previsão):** O gráfico mostra que as previsões acompanham razoavelmente bem o padrão sazonal observado nos últimos 12 meses (inclusive o salto de dezembro), com os valores reais (linha pontilhada) permanecendo dentro ou próximos do intervalo de confiança de 95% do modelo ao longo do horizonte. A tabela de `accuracy` reporta, na linha "Test set", as medidas de erro (RMSE, MAE, MAPE etc.) no período de validação — quanto menor o MAPE, melhor o ajuste relativo do modelo às variações mês a mês do índice.
+
+**Conclusões gerais da Parte 4:** As três séries ilustram bem a diferença entre sazonalidade aditiva e multiplicativa: o CO2 tem um ciclo de amplitude absoluta fixa (aditivo), o PMC tem um efeito sazonal que cresce com o nível da série (multiplicativo), e o One Piece, apesar de também multiplicativo, mostra os limites do modelo clássico de decomposição quando o "ciclo" não é estritamente calendárico. A escolha do PMC para a previsão aproveitou exatamente o caso mais "bem comportado" das três séries para aplicar Holt-Winters com sazonalidade multiplicativa, conforme o roteiro do trabalho.
