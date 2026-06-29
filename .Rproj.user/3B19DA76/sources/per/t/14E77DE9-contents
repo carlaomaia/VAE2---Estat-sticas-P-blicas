@@ -1,43 +1,47 @@
 ---
-title: "Parte 3 — Indo além da mídia: o que os dados oficiais do IBGE revelam sobre resíduos sólidos industriais no Brasil"
-subtitle: "VAE2 — Estatísticas Públicas"
-author: "Cadu"
-date: "`r format(Sys.Date(), '%d de %B de %Y')`"
-output:
-  html_document:
-    toc: true
-    toc_float: true
-    theme: flatly
-    df_print: kable
+title: "VAE2"
+author: "Carlos Maia, Pablo Aimar e Vitor Alcântara"
+date: "2026-06-23"
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
-                       fig.width = 8, fig.height = 5)
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## 3.0 Contexto
+## Parte 1: Análise de Matéria Jornalística
+1. Link, Título, Data e Veículo da publicação:
+-Link: [https://www.intercept.com.br/2025/11/25/grande-midia-clima-negacionismo/]
+-Título: A grande mídia é cúmplice da desinformação sobre o clima.
+-Data: 25 de novembro de 2025.
+-Veículo: Intercept Brasil.
 
-Na Parte 2 deste trabalho, Agapito descobre que boa parte do que circula como "informação ambiental"
-na grande mídia é, na verdade, moldada por publieditoriais e por uma "lacuna de percepção" — a
-distância entre o que os dados realmente mostram e o que o público acredita que os dados mostram.
-A reação dele é deixar de confiar no ruído midiático e ir direto à fonte primária oficial.
+2. Principal mensagem e tópicos abordados: A reportagem aborda como a atuação da grande imprensa corporativa favorece o discurso das empresas de combustíveis fósseis e legitima o negacionismo climático. A mensagem principal do texto gira em torno do conceito de “lacuna de percepção”: embora os dados mostrem que uma esmagadora maioria da população mundial (cerca de 80 a 89%) exija medidas climáticas mais fortes por parte dos governos, a falha e a manipulação na cobertura midiática fazem as pessoas acreditarem, de forma enganosa, que esse apoio é de apenas 30%. O texto também denuncia a proliferação de "publieditoriais" (anúncios pagos disfarçados de conteúdo jornalístico) usados pelas petroleiras para confundir o leitor e maquiar a realidade ambiental.
 
-Esta Parte 3 reproduz esse movimento na prática: em vez de comentar sobre saneamento e resíduos
-industriais a partir de reportagens, vamos direto a duas tabelas oficiais do IBGE, produzidas pela
+3. Fonte dos dados: Os argumentos são baseados em pesquisas de opinião, enquetes e estudos revisados por pares realizados por organizações e periódicos reconhecidos, como a Universidade de Yale, Gallup, Nature, Universidade de Oxford e a Comissão Europeia.
+
+4. Opinião sobre a matéria: A matéria condiz de forma precisa com a nossa realidade. Historicamente, empresas de derivados de petróleo são as principais causadoras do aquecimento global, porém investem milhões para manipular narrativas, passando uma falsa sensação de segurança ao público de que estão liderando a transição energética.
+Sob a ótica da disciplina de Estatísticas Públicas, a reportagem ilustra perfeitamente as vulnerabilidades do atual Ecossistema de Dados, onde atores privados e com fins lucrativos se aproveitam da mídia para gerar Poluição da Informação. Quando essas empresas financiam publieditoriais que misturam dados científicos com publicidade enganosa, elas estão praticando a "malinformation" (informação que pode até conter bases reais, mas é manipulada para causar danos ou distorcer os fatos). Esse tipo de manobra dificulta a mobilização climática e consolida a era da Pós-verdade, fazendo com que o forte apelo de campanhas de marketing se sobreponha à urgência dos fatos e evidências reais sobre o clima.
+
+## Parte 2: A Jornada de Agapito no Ecossistema de Dados Ambientais
+
+- Apresentação: Agapito de Antunes, 33 anos, é um pesquisador focado em áreas ambientais e diretor de produto de uma emergente startup focada na preservação oceânica, inspirada nos modelos da “Infinito Mare”. Como cientista engajado na recuperação de biomas, ele é um usuário crítico e assíduo de estatísticas públicas, acessando frequentemente bases de dados oficiais para entender a dinâmica espacial da degradação ambiental e planejar as inovações tecnológicas de sua empresa.
+
+- Desenvolvimento: Durante a fase de planejamento de um novo sistema para rastreamento de resíduos no litoral, Agapito precisava levantar informações confiáveis sobre as principais fontes de poluentes marinhos e o real nível de engajamento das grandes corporações na transição ecológica. Contudo, ao realizar buscas na internet por dados consolidados que embasassem sua pesquisa, ele se deparou com um cenário informacional confuso e, no meio dessa busca, encontrou a reportagem da Intercept Brasil: “A grande mídia é cúmplice da desinformação sobre o clima”.
+
+- Clímax: A leitura da reportagem provocou um choque de realidade em Agapito, levando-o a um estado de completa desconfiança. Ele descobriu que as grandes empresas petrolíferas frequentemente as maiores responsáveis pelas emissões de poluentes gastam milhões em “publieditoriais”, que são propagandas caras mascaradas com o formato e a linguagem de reportagens jornalísticas legítimas. O pesquisador percebeu que as grandes mídias inflam seus cadernos de sustentabilidade com essas narrativas falsas, criando a chamada “lacuna de percepção”. De repente, Agapito questionou toda a base de informações veiculadas pela imprensa sobre ações corporativas sustentáveis, sentindo-se encurralado em um ambiente onde o poder financeiro das empresas de combustíveis fósseis se sobrepunha aos fatos científicos.
+
+- Desfecho: Em vez de sucumbir ao cinismo ou ao imobilismo gerado pela desinformação, a indignação serviu de catalisador para uma profunda mudança de atitude. Agapito compreendeu que precisava buscar evidências sólidas diretamente nas fontes primárias e oficiais, contornando o ruído midiático. Movido por esse aprendizado, ele mergulhou de forma ainda mais incisiva em seu papel na startup. Seu objetivo tornou-se claro: usar as tecnologias próprias desenvolvidas em sua empresa para identificar fisicamente os poluentes, despoluir os mares e gerar dados primários confiáveis que comprovem o aumento da biodiversidade, combatendo a poluição real com métricas reais, independentes do marketing das petroleiras.
+Moral da História: A trajetória de Agapito ilustra perfeitamente as armadilhas do atual ecossistema de dados, que se encontra altamente vulnerável à poluição da informação (malinformation) por parte de atores com interesses comerciais. Sob a perspectiva do usuário, a história ensina que a cadeia de valor do dado só atinge seu pleno potencial quando a informação é criticamente filtrada e transformada em uma ação prática benéfica à sociedade no caso, a inovação tecnológica para despoluição. Fica evidente, portanto, a urgência de se promover o letramento de dados não apenas para capacitar os cidadãos a distinguirem fatos de propagandas (greenwashing), mas sobretudo para os profissionais de mídia, que deveriam atuar como guardiões da integridade informacional, impedindo que os interesses corporativos perpetuem a pós-verdade na pauta climática.
+
+## Parte 3: O Uso de Dados Oficiais para a Tomada de Decisão
+Para que Agapito consiga direcionar os esforços de sua startup com base em evidências reais, contornando a poluição de informação das campanhas de greenwashing das grandes empresas, ele recorreu ao SIDRA/IBGE. Utilizando os descritores adequados no painel de busca, ele extraiu dados da Pesquisa Nacional de Saneamento Básico (PNSB), focando especificamente nas Tabelas 1241 e 2064.
+
 **Pesquisa Nacional de Saneamento Básico (PNSB)** e disponíveis no SIDRA:
 
-- **Tabela 2064** — número de municípios que coletam resíduos sólidos industriais perigosos e/ou
-  não-inertes e a quantidade coletada (toneladas/dia), por Grande Região, UF e município — ano de
-  referência **2008**;
-- **Tabela 1241** — número total de municípios, por Grande Região e UF, nos anos de **2000 e 2008**
-  (usada aqui como universo/denominador para calcular taxas de cobertura).
+- **Tabela 1241 (Municípios com manejo de resíduos sólidos e situação da coleta seletiva):** Esta tabela permitiu a Agapito mapear a infraestrutura de limpeza urbana. Ao identificar os municípios litorâneos que ainda possuem déficits na coleta seletiva de resíduos, ele pôde prever os principais pontos de vulnerabilidade onde o lixo sólido urbano (como plásticos) tem maior probabilidade de escapar para o oceano, direcionando as tecnologias de contenção física de sua empresa para essas áreas.
 
-> **Observação sobre os arquivos:** este relatório assume que `tabela2064.xlsx` e `tabela1241.xlsx`
-> estão salvos na mesma pasta do projeto (`.Rproj`) deste `.Rmd`, seguindo o mesmo padrão de caminhos
-> portáteis com `here::here()` usado no Trabalho 2.
-
-## 3.1 Pacotes utilizados
+- **Tabela 2064 (Quantidade coletada de resíduos sólidos industriais perigosos e/ou não-inertes):** Ao analisar esta base, Agapito constatou que a geração de resíduos perigosos não é homogênea, estando fortemente concentrada nas matrizes industriais do Sul (com indicador de 2.089,3) e do Sudeste (1.210,7). O estado de São Paulo, principal polo petroquímico e industrial, apresentou 1.171,4 em volume coletado.
 
 ```{r pacotes}
 library(here)
@@ -48,12 +52,6 @@ library(tidyr)
 library(ggplot2)
 library(knitr)
 ```
-
-## 3.2 Importação dos dados
-
-As planilhas do SIDRA trazem várias linhas de cabeçalho/título antes dos dados e uma linha de
-"Fonte:" no final. Por isso, pulamos (`skip`) as linhas de cabeçalho e damos nomes manuais às
-colunas.
 
 ```{r importar-2064}
 # Aba 1 da tabela 2064: número de municípios que coletam resíduos perigosos (2008)
@@ -98,14 +96,6 @@ total_municipios <- read_excel(
   select(local, total_municipios_2000, total_municipios_2008)
 ```
 
-## 3.3 Organizando a hierarquia geográfica
-
-As tabelas do SIDRA empilham, numa única coluna de texto, linhas de **Brasil**, **Grande Região**,
-**Unidade da Federação**, **município/região metropolitana** e **grupos de tamanho populacional**,
-sem uma coluna separada indicando o nível. Para conseguir comparar região com região e estado com
-estado (sem misturar com municípios ou grupos populacionais), criamos uma função que classifica cada
-linha pelo nome.
-
 ```{r classificar}
 regioes <- c("Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste")
 
@@ -138,17 +128,6 @@ base_1241 <- total_municipios %>%
   filter(nivel %in% c("Brasil", "Região", "UF"))
 ```
 
-## 3.4 Construindo o painel: cobertura da coleta de resíduos perigosos
-
-Cruzamos as duas tabelas para calcular, em cada nível geográfico, a **cobertura** (% de municípios
-que coletam resíduos sólidos industriais perigosos e/ou não-inertes, em relação ao total de
-municípios existentes em 2008) e a **quantidade média coletada por município coletor**.
-
-Estados que não aparecem na Tabela 2064 (ex.: Rondônia, Acre, Amazonas, Roraima, Amapá, Rio Grande
-do Norte, Mato Grosso do Sul e Distrito Federal) tiveram **zero** municípios realizando esse tipo de
-coleta em 2008 — isso é confirmado batendo a soma dos estados com o total de cada Grande Região na
-própria tabela original — por isso preenchemos esses casos com `0`, e não com `NA`.
-
 ```{r painel}
 painel <- base_1241 %>%
   left_join(
@@ -171,8 +150,6 @@ painel_regiao <- filter(painel, nivel == "Região") %>% arrange(desc(cobertura_p
 painel_uf     <- filter(painel, nivel == "UF")     %>% arrange(desc(cobertura_pct))
 ```
 
-### 3.4.1 Brasil
-
 ```{r tabela-brasil}
 painel_brasil %>%
   select(local, total_municipios_2008, n_coletam_2008, cobertura_pct, qtd_coletada_ton_dia) %>%
@@ -182,8 +159,6 @@ painel_brasil %>%
     digits = 2
   )
 ```
-
-### 3.4.2 Por Grande Região
 
 ```{r tabela-regiao}
 painel_regiao %>%
@@ -196,8 +171,6 @@ painel_regiao %>%
   )
 ```
 
-### 3.4.3 Por Unidade da Federação
-
 ```{r tabela-uf}
 painel_uf %>%
   select(local, total_municipios_2008, n_coletam_2008, cobertura_pct,
@@ -208,10 +181,6 @@ painel_uf %>%
     digits = 2
   )
 ```
-
-## 3.5 Visualizações
-
-### 3.5.1 Cobertura por Grande Região
 
 ```{r grafico-regiao}
 ggplot(painel_regiao, aes(x = reorder(local, cobertura_pct), y = cobertura_pct)) +
@@ -228,8 +197,6 @@ ggplot(painel_regiao, aes(x = reorder(local, cobertura_pct), y = cobertura_pct))
   theme_minimal(base_size = 13)
 ```
 
-### 3.5.2 Cobertura por Unidade da Federação
-
 ```{r grafico-uf}
 painel_uf %>%
   mutate(local = factor(local, levels = local[order(cobertura_pct)])) %>%
@@ -245,8 +212,6 @@ painel_uf %>%
   ) +
   theme_minimal(base_size = 11)
 ```
-
-### 3.5.3 Concentração: poucos municípios concentram quase todo o volume
 
 ```{r grafico-dispersao}
 painel_uf %>%
@@ -265,8 +230,6 @@ painel_uf %>%
   theme_minimal(base_size = 12)
 ```
 
-## 3.6 O que os números mostram (e a mídia não costuma mostrar)
-
 ```{r estatisticas-discussao}
 concentracao_sp_pr <- painel_uf %>%
   filter(local %in% c("São Paulo", "Paraná")) %>%
@@ -277,6 +240,8 @@ pct_concentracao_sp_pr <- 100 * concentracao_sp_pr / painel_brasil$qtd_coletada_
 
 n_uf_zero <- sum(painel_uf$n_coletam_2008 == 0)
 ```
+
+## O que os números mostram (e a mídia não costuma mostrar)
 
 Em 2008, apenas `r painel_brasil$n_coletam_2008` dos `r painel_brasil$total_municipios_2008`
 municípios brasileiros (**`r round(painel_brasil$cobertura_pct, 1)`%**) tinham algum serviço de
@@ -299,7 +264,11 @@ concentrada do país. É só descendo ao dado primário do IBGE — exatamente o
 na Parte 2, ao abandonar as fontes midiáticas e buscar evidência oficial — que essa desigualdade
 aparece com números concretos.
 
-## 3.7 Considerações finais
+## Argumentação analítica
+
+Esses dados oficiais são infinitamente mais informativos e pertinentes à necessidade do usuário do que os publieditoriais da grande mídia. Enquanto as reportagens financiadas por petroleiras oferecem uma falsa sensação de segurança (pós-verdade), as tabelas da PNSB dão a dimensão territorial exata do problema do saneamento e do descarte industrial perigoso. Com isso, Agapito pôde não apenas identificar o “ponto cego” do discurso midiático, mas também elaborar um plano de negócios para sua startup focado na realidade geográfica brasileira: priorizando o monitoramento de contaminantes químicos nas bacias hidrográficas e no litoral do eixo Sul-Sudeste, onde o risco ambiental das indústrias provou ser estatisticamente maior.
+
+## Considerações finais
 
 A análise confirma, com dados oficiais, o argumento central das Partes 1 e 2: informação ambiental
 de qualidade não nasce de publieditoriais nem de notícias soltas, mas de séries estatísticas
@@ -312,9 +281,9 @@ saneamento e resíduos industriais.
 
 ## Referências
 
+- Intercpt Brasil. **A grande mídia é cúmplice da desinformação sobre o clima**
 - IBGE. **Pesquisa Nacional de Saneamento Básico (PNSB) — 2008.** Sistema IBGE de Recuperação
-  Automática (SIDRA), Tabela 2064 — Número de municípios que coletam resíduos sólidos industriais
-  perigosos e/ou não-inertes e quantidade coletada.
+  Automática (SIDRA), Tabela 2064 — Número de municípios que coletam resíduos sólidos industriais perigosos e/ou não-inertes e quantidade coletada.
 - IBGE. **Pesquisa Nacional de Saneamento Básico (PNSB).** Sistema IBGE de Recuperação Automática
   (SIDRA), Tabela 1241 — Número de municípios, total e os com manejo de resíduos sólidos, por
   situação da coleta seletiva no município. Disponível em: sidra.ibge.gov.br/tabela/1241.

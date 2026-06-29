@@ -3,22 +3,24 @@
     "path": "C:/Users/carlo/OneDrive - fundacaoibge/Faculdade/Estatisticas Públicas/VAE2 - Estatísticas Públicas/VAE2_Parte3.Rmd",
     "project_path": "VAE2_Parte3.Rmd",
     "type": "r_markdown",
-    "hash": "73520711",
+    "hash": "2083782474",
     "contents": "",
-    "dirty": false,
+    "dirty": true,
     "created": 1782617408824.0,
     "source_on_save": false,
     "relative_order": 2,
     "properties": {
         "source_window_id": "",
-        "Source": "Source"
+        "Source": "Source",
+        "cursorPosition": "3,17",
+        "scrollLine": "0"
     },
     "folds": "",
-    "lastKnownWriteTime": 1782617339,
+    "lastKnownWriteTime": 1782754489,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1782617339,
+    "last_content_update": 1782754489735,
     "read_only": false,
     "read_only_alternatives": []
 }
