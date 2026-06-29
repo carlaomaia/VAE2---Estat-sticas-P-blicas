@@ -1,0 +1,320 @@
+---
+title: "Parte 3 — Indo além da mídia: o que os dados oficiais do IBGE revelam sobre resíduos sólidos industriais no Brasil"
+subtitle: "VAE2 — Estatísticas Públicas"
+author: "Cadu"
+date: "`r format(Sys.Date(), '%d de %B de %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                       fig.width = 8, fig.height = 5)
+```
+
+## 3.0 Contexto
+
+Na Parte 2 deste trabalho, Agapito descobre que boa parte do que circula como "informação ambiental"
+na grande mídia é, na verdade, moldada por publieditoriais e por uma "lacuna de percepção" — a
+distância entre o que os dados realmente mostram e o que o público acredita que os dados mostram.
+A reação dele é deixar de confiar no ruído midiático e ir direto à fonte primária oficial.
+
+Esta Parte 3 reproduz esse movimento na prática: em vez de comentar sobre saneamento e resíduos
+industriais a partir de reportagens, vamos direto a duas tabelas oficiais do IBGE, produzidas pela
+**Pesquisa Nacional de Saneamento Básico (PNSB)** e disponíveis no SIDRA:
+
+- **Tabela 2064** — número de municípios que coletam resíduos sólidos industriais perigosos e/ou
+  não-inertes e a quantidade coletada (toneladas/dia), por Grande Região, UF e município — ano de
+  referência **2008**;
+- **Tabela 1241** — número total de municípios, por Grande Região e UF, nos anos de **2000 e 2008**
+  (usada aqui como universo/denominador para calcular taxas de cobertura).
+
+> **Observação sobre os arquivos:** este relatório assume que `tabela2064.xlsx` e `tabela1241.xlsx`
+> estão salvos na mesma pasta do projeto (`.Rproj`) deste `.Rmd`, seguindo o mesmo padrão de caminhos
+> portáteis com `here::here()` usado no Trabalho 2.
+
+## 3.1 Pacotes utilizados
+
+```{r pacotes}
+library(here)
+library(readxl)
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+```
+
+## 3.2 Importação dos dados
+
+As planilhas do SIDRA trazem várias linhas de cabeçalho/título antes dos dados e uma linha de
+"Fonte:" no final. Por isso, pulamos (`skip`) as linhas de cabeçalho e damos nomes manuais às
+colunas.
+
+```{r importar-2064}
+# Aba 1 da tabela 2064: número de municípios que coletam resíduos perigosos (2008)
+contagem_2064 <- read_excel(
+  here("tabela2064.xlsx"),
+  sheet = 1,
+  skip = 4,
+  col_names = c("local", "n_coletam_2008"),
+  col_types = c("text", "numeric")
+)
+
+# Aba 2 da tabela 2064: quantidade coletada, em toneladas/dia (2008)
+# "-" siginifica zero absoluto (ver aba "Notas" da planilha original)
+quantidade_2064 <- read_excel(
+  here("tabela2064.xlsx"),
+  sheet = 2,
+  skip = 4,
+  col_names = c("local", "qtd_raw"),
+  col_types = c("text", "text")
+) %>%
+  mutate(
+    qtd_coletada_ton_dia = if_else(str_trim(qtd_raw) == "-", 0,
+                                    suppressWarnings(as.numeric(qtd_raw)))
+  ) %>%
+  select(local, qtd_coletada_ton_dia)
+```
+
+```{r importar-1241}
+# Tabela 1241, aba "Tabela 1": total geral de municípios em 2000 e 2008
+# ".." significa "não disponível" naquele nível/ano (ver legenda da planilha original)
+total_municipios <- read_excel(
+  here("tabela1241.xlsx"),
+  sheet = "Tabela 1",
+  skip = 5,
+  col_names = c("local", "total_2000_raw", "total_2008_raw"),
+  col_types = c("text", "text", "text")
+) %>%
+  mutate(
+    total_municipios_2000 = suppressWarnings(as.numeric(total_2000_raw)),
+    total_municipios_2008 = suppressWarnings(as.numeric(total_2008_raw))
+  ) %>%
+  select(local, total_municipios_2000, total_municipios_2008)
+```
+
+## 3.3 Organizando a hierarquia geográfica
+
+As tabelas do SIDRA empilham, numa única coluna de texto, linhas de **Brasil**, **Grande Região**,
+**Unidade da Federação**, **município/região metropolitana** e **grupos de tamanho populacional**,
+sem uma coluna separada indicando o nível. Para conseguir comparar região com região e estado com
+estado (sem misturar com municípios ou grupos populacionais), criamos uma função que classifica cada
+linha pelo nome.
+
+```{r classificar}
+regioes <- c("Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste")
+
+ufs <- c("Rondônia", "Acre", "Amazonas", "Roraima", "Pará", "Amapá", "Tocantins",
+         "Maranhão", "Piauí", "Ceará", "Rio Grande do Norte", "Paraíba", "Pernambuco",
+         "Alagoas", "Sergipe", "Bahia", "Minas Gerais", "Espírito Santo", "Rio de Janeiro",
+         "São Paulo", "Paraná", "Santa Catarina", "Rio Grande do Sul", "Mato Grosso do Sul",
+         "Mato Grosso", "Goiás", "Distrito Federal")
+
+classificar_nivel <- function(local) {
+  case_when(
+    local == "Brasil"                       ~ "Brasil",
+    local %in% regioes                      ~ "Região",
+    local %in% ufs                          ~ "UF",
+    str_starts(local, "Grupo")              ~ "Grupo populacional",
+    str_detect(local, "\\([A-Z]{2}\\)$")    ~ "Município/RM",
+    TRUE                                     ~ "Outro"
+  )
+}
+```
+
+```{r filtrar-niveis}
+base_2064 <- contagem_2064 %>%
+  left_join(quantidade_2064, by = "local") %>%
+  mutate(nivel = classificar_nivel(local)) %>%
+  filter(nivel %in% c("Brasil", "Região", "UF"))
+
+base_1241 <- total_municipios %>%
+  mutate(nivel = classificar_nivel(local)) %>%
+  filter(nivel %in% c("Brasil", "Região", "UF"))
+```
+
+## 3.4 Construindo o painel: cobertura da coleta de resíduos perigosos
+
+Cruzamos as duas tabelas para calcular, em cada nível geográfico, a **cobertura** (% de municípios
+que coletam resíduos sólidos industriais perigosos e/ou não-inertes, em relação ao total de
+municípios existentes em 2008) e a **quantidade média coletada por município coletor**.
+
+Estados que não aparecem na Tabela 2064 (ex.: Rondônia, Acre, Amazonas, Roraima, Amapá, Rio Grande
+do Norte, Mato Grosso do Sul e Distrito Federal) tiveram **zero** municípios realizando esse tipo de
+coleta em 2008 — isso é confirmado batendo a soma dos estados com o total de cada Grande Região na
+própria tabela original — por isso preenchemos esses casos com `0`, e não com `NA`.
+
+```{r painel}
+painel <- base_1241 %>%
+  left_join(
+    base_2064 %>% select(local, n_coletam_2008, qtd_coletada_ton_dia),
+    by = "local"
+  ) %>%
+  mutate(
+    n_coletam_2008       = replace_na(n_coletam_2008, 0),
+    qtd_coletada_ton_dia = replace_na(qtd_coletada_ton_dia, 0),
+    cobertura_pct = 100 * n_coletam_2008 / total_municipios_2008,
+    qtd_media_ton_dia_por_municipio = if_else(
+      n_coletam_2008 > 0,
+      qtd_coletada_ton_dia / n_coletam_2008,
+      NA_real_
+    )
+  )
+
+painel_brasil <- filter(painel, nivel == "Brasil")
+painel_regiao <- filter(painel, nivel == "Região") %>% arrange(desc(cobertura_pct))
+painel_uf     <- filter(painel, nivel == "UF")     %>% arrange(desc(cobertura_pct))
+```
+
+### 3.4.1 Brasil
+
+```{r tabela-brasil}
+painel_brasil %>%
+  select(local, total_municipios_2008, n_coletam_2008, cobertura_pct, qtd_coletada_ton_dia) %>%
+  kable(
+    col.names = c("Brasil", "Total de municípios (2008)", "Municípios que coletam",
+                  "Cobertura (%)", "Quantidade coletada (t/dia)"),
+    digits = 2
+  )
+```
+
+### 3.4.2 Por Grande Região
+
+```{r tabela-regiao}
+painel_regiao %>%
+  select(local, total_municipios_2008, n_coletam_2008, cobertura_pct,
+         qtd_coletada_ton_dia, qtd_media_ton_dia_por_municipio) %>%
+  kable(
+    col.names = c("Região", "Total de municípios", "Municípios que coletam",
+                  "Cobertura (%)", "Qtd. coletada (t/dia)", "Qtd. média/município (t/dia)"),
+    digits = 2
+  )
+```
+
+### 3.4.3 Por Unidade da Federação
+
+```{r tabela-uf}
+painel_uf %>%
+  select(local, total_municipios_2008, n_coletam_2008, cobertura_pct,
+         qtd_coletada_ton_dia, qtd_media_ton_dia_por_municipio) %>%
+  kable(
+    col.names = c("UF", "Total de municípios", "Municípios que coletam",
+                  "Cobertura (%)", "Qtd. coletada (t/dia)", "Qtd. média/município (t/dia)"),
+    digits = 2
+  )
+```
+
+## 3.5 Visualizações
+
+### 3.5.1 Cobertura por Grande Região
+
+```{r grafico-regiao}
+ggplot(painel_regiao, aes(x = reorder(local, cobertura_pct), y = cobertura_pct)) +
+  geom_col(fill = "#2c7fb8") +
+  geom_text(aes(label = paste0(round(cobertura_pct, 1), "%")), hjust = -0.15, size = 3.6) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, max(painel_regiao$cobertura_pct) * 1.3)) +
+  labs(
+    title = "Cobertura da coleta de resíduos sólidos industriais perigosos",
+    subtitle = "% dos municípios da região com esse serviço — PNSB 2008",
+    x = NULL, y = "Cobertura (%)",
+    caption = "Fonte: IBGE/PNSB — Tabelas 2064 e 1241 (SIDRA)"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+### 3.5.2 Cobertura por Unidade da Federação
+
+```{r grafico-uf}
+painel_uf %>%
+  mutate(local = factor(local, levels = local[order(cobertura_pct)])) %>%
+  ggplot(aes(x = local, y = cobertura_pct, fill = cobertura_pct > 0)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_manual(values = c(`TRUE` = "#2c7fb8", `FALSE` = "grey80"), guide = "none") +
+  labs(
+    title = "Cobertura da coleta de resíduos sólidos industriais perigosos por UF",
+    subtitle = "PNSB 2008 — estados em cinza não registraram nenhum município coletor",
+    x = NULL, y = "Cobertura (%)",
+    caption = "Fonte: IBGE/PNSB — Tabelas 2064 e 1241 (SIDRA)"
+  ) +
+  theme_minimal(base_size = 11)
+```
+
+### 3.5.3 Concentração: poucos municípios concentram quase todo o volume
+
+```{r grafico-dispersao}
+painel_uf %>%
+  filter(n_coletam_2008 > 0) %>%
+  ggplot(aes(x = n_coletam_2008, y = qtd_coletada_ton_dia)) +
+  geom_point(aes(size = qtd_coletada_ton_dia), color = "#d95f0e", alpha = 0.8) +
+  geom_text(aes(label = local), size = 3, vjust = -1, check_overlap = TRUE) +
+  scale_y_log10() +
+  guides(size = "none") +
+  labs(
+    title = "Poucos municípios concentram a maior parte do volume coletado",
+    x = "Número de municípios que coletam resíduos perigosos",
+    y = "Quantidade coletada (t/dia, escala log)",
+    caption = "Fonte: IBGE/PNSB — Tabela 2064 (2008)"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+## 3.6 O que os números mostram (e a mídia não costuma mostrar)
+
+```{r estatisticas-discussao}
+concentracao_sp_pr <- painel_uf %>%
+  filter(local %in% c("São Paulo", "Paraná")) %>%
+  summarise(soma = sum(qtd_coletada_ton_dia)) %>%
+  pull(soma)
+
+pct_concentracao_sp_pr <- 100 * concentracao_sp_pr / painel_brasil$qtd_coletada_ton_dia
+
+n_uf_zero <- sum(painel_uf$n_coletam_2008 == 0)
+```
+
+Em 2008, apenas `r painel_brasil$n_coletam_2008` dos `r painel_brasil$total_municipios_2008`
+municípios brasileiros (**`r round(painel_brasil$cobertura_pct, 1)`%**) tinham algum serviço de
+coleta de resíduos sólidos industriais perigosos e/ou não-inertes. Em outras palavras, para mais de
+97% dos municípios do país esse tipo de resíduo simplesmente não tinha, segundo o próprio IBGE, um
+destino formalmente monitorado.
+
+A distribuição é, além de baixa, extremamente desigual: `r n_uf_zero` Unidades da Federação não
+registraram nenhum município com esse serviço, enquanto São Paulo e Paraná, somados, concentram
+**`r round(pct_concentracao_sp_pr, 1)`%** de toda a quantidade coletada no país — mesmo cobrindo
+uma fração pequena dos seus próprios municípios (1,4% em São Paulo e 6,3% no Paraná). Ou seja: a
+gestão formal de resíduos perigosos no Brasil não está distribuída de acordo com a necessidade
+ambiental do território, e sim concentrada em poucos polos industriais.
+
+Esse tipo de assimetria é exatamente o que a "lacuna de percepção" discutida na Parte 1 tende a
+esconder: discursos corporativos de sustentabilidade — e os publieditoriais que os veiculam — falam
+em termos vagos de "transição" e "responsabilidade ambiental", mas raramente mencionam que a
+infraestrutura formal de tratamento de resíduos perigosos cobre uma fatia mínima e geograficamente
+concentrada do país. É só descendo ao dado primário do IBGE — exatamente o movimento que Agapito faz
+na Parte 2, ao abandonar as fontes midiáticas e buscar evidência oficial — que essa desigualdade
+aparece com números concretos.
+
+## 3.7 Considerações finais
+
+A análise confirma, com dados oficiais, o argumento central das Partes 1 e 2: informação ambiental
+de qualidade não nasce de publieditoriais nem de notícias soltas, mas de séries estatísticas
+públicas, sistematizadas e auditáveis, como a PNSB do IBGE. O exercício de cruzar a Tabela 2064 com a
+Tabela 1241 — duas tabelas que, isoladamente, dizem pouco — ilustra também a importância do
+**letramento de dados** defendido na "Moral da História" da Parte 2: saber onde buscar a fonte
+primária e como tratá-la (lidar com a hierarquia geográfica, os códigos de valor ausente/zero etc.)
+é o que transforma um dado bruto em evidência útil para entender — e cobrar — políticas públicas de
+saneamento e resíduos industriais.
+
+## Referências
+
+- IBGE. **Pesquisa Nacional de Saneamento Básico (PNSB) — 2008.** Sistema IBGE de Recuperação
+  Automática (SIDRA), Tabela 2064 — Número de municípios que coletam resíduos sólidos industriais
+  perigosos e/ou não-inertes e quantidade coletada.
+- IBGE. **Pesquisa Nacional de Saneamento Básico (PNSB).** Sistema IBGE de Recuperação Automática
+  (SIDRA), Tabela 1241 — Número de municípios, total e os com manejo de resíduos sólidos, por
+  situação da coleta seletiva no município. Disponível em: sidra.ibge.gov.br/tabela/1241.
