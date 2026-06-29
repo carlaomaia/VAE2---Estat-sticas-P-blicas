@@ -75,8 +75,7 @@ Relatório técnico em R Markdown que reproduz, na prática, o movimento de Agap
 ```
 .
 ├── README.md                          # Este arquivo
-├── VAE2.docx                          # Partes 1 e 2 (documento Word)
-├── VAE2_Parte3.Rmd                    # Parte 3 (relatório R Markdown)
+├── VAE2.Rmd                           # Relatório R Markdown
 ├── tabela2064.xlsx                    # Dados: IBGE/PNSB — resíduos industriais
 ├── tabela1241.xlsx                    # Dados: IBGE/PNSB — total de municípios
 └── .Rproj                             # Projeto RStudio (opcional)
