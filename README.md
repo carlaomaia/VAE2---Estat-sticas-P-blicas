@@ -317,7 +317,7 @@ README.md                        # Este arquivo
 
 ## Contato/Notas
 
-Trabalho realizado para a disciplina **Estatística Computacional I**, Professor Eduardo Campos, UERJ/ENCE.
+Trabalho realizado para a disciplina **Estatísticas Públicas**, Professora Bianca Walsh, ENCE.
 
 Entrega: julho de 2026.
 >>>>>>> d2c07a22a569c0cca618eae8dfe0926b39041a20
